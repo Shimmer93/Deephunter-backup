@@ -21,7 +21,7 @@ from keras.applications.vgg16 import preprocess_input
 import random
 import time
 import numpy as np
-from deephunter.image_queue import ImageInputCorpus
+from deephunter.image_queue import ImageInputCorpus, TensorInputCorpus
 from deephunter.fuzzone import build_fetch_function
 
 from lib.queue import Seed
@@ -30,11 +30,13 @@ from lib.fuzzer import Fuzzer
 from deephunter.mutators import Mutators
 from keras.utils.generic_utils import CustomObjectScope
 
+
 def imagenet_preprocessing(input_img_data):
     temp = np.copy(input_img_data)
     temp = np.float32(temp)
     qq = preprocess_input(temp)
     return qq
+
 
 def mnist_preprocessing(x_test):
     temp = np.copy(x_test)
@@ -42,6 +44,7 @@ def mnist_preprocessing(x_test):
     temp = temp.astype('float32')
     temp /= 255
     return temp
+
 
 def cifar_preprocessing(x_test):
     temp = np.copy(x_test)
@@ -51,6 +54,7 @@ def cifar_preprocessing(x_test):
     for i in range(3):
         temp[:, :, :, i] = (temp[:, :, :, i] - mean[i]) / std[i]
     return temp
+
 
 model_weight_path = {
     'vgg16': "./profile/cifar10/models/vgg16.h5",
@@ -83,14 +87,14 @@ preprocess_dic = {
 }
 
 shape_dic = {
-    'vgg16': (32,32,3),
-    'resnet20': (32,32,3),
-    'lenet1': (28,28,1),
-    'lenet4': (28,28,1),
-    'lenet5': (28,28,1),
-    'mobilenet': (224, 224,  3),
-    'vgg19': (224, 224,  3),
-    'resnet50': (224, 224,  3)
+    'vgg16': (32, 32, 3),
+    'resnet20': (32, 32, 3),
+    'lenet1': (28, 28, 1),
+    'lenet4': (28, 28, 1),
+    'lenet5': (28, 28, 1),
+    'mobilenet': (224, 224, 3),
+    'vgg19': (224, 224, 3),
+    'resnet50': (224, 224, 3)
 }
 metrics_para = {
     'kmnc': 1000,
@@ -99,6 +103,7 @@ metrics_para = {
     'nbc': 10,
     'newnc': 10,
     'nc': 0.75,
+    'fann': 1.0,
     'snac': 10
 }
 execlude_layer_dic = {
@@ -112,28 +117,31 @@ execlude_layer_dic = {
     'vgg19': ['input', 'flatten', 'padding', 'activation', 'batch', 'dropout', 'bn',
               'reshape', 'relu', 'pool', 'concat', 'softmax', 'fc'],
     'resnet50': ['input', 'flatten', 'padding', 'activation', 'batch', 'dropout', 'bn',
-                              'reshape', 'relu', 'pool', 'concat', 'add', 'res4', 'res5']
+                 'reshape', 'relu', 'pool', 'concat', 'add', 'res4', 'res5']
 }
+
+
 def metadata_function(meta_batches):
     return meta_batches
+
 
 def image_mutation_function(batch_num):
     # Given a seed, randomly generate a batch of mutants
     def func(seed):
         return Mutators.image_random_mutate(seed, batch_num)
-    return func
 
+    return func
 
 
 def objective_function(seed, names):
     metadata = seed.metadata
     ground_truth = seed.ground_truth
-    assert(names is not None)
+    assert (names is not None)
     results = []
-    if len(metadata)  == 1:
+    if len(metadata) == 1:
         # To check whether it is an adversarial sample
         if metadata[0] != ground_truth:
-           results.append('')
+            results.append('')
     else:
         # To check whether it has different results between original model and quantized model
         # metadata[0] is the result of original model while metadata[1:] is the results of other models.
@@ -147,15 +155,16 @@ def objective_function(seed, names):
         count = 1
         while count < len(metadata):
             if metadata[count] != metadata[0]:
-                results.append(names[count]+adv)
+                results.append(names[count] + adv)
             count += 1
 
     # results records the suffix for the name of the failed tests
     return results
 
+
 def iterate_function(names):
     def func(queue, root_seed, parent, mutated_coverage_list, mutated_data_batches, mutated_metadata_list,
-                         objective_function):
+             objective_function):
 
         ref_batches, batches, cl_batches, l0_batches, linf_batches = mutated_data_batches
 
@@ -186,8 +195,7 @@ def iterate_function(names):
     return func
 
 
-def dry_run(indir, fetch_function,coverage_function, queue):
-
+def dry_run(indir, fetch_function, coverage_function, queue):
     seed_lis = os.listdir(indir)
     # Read each initial seed and analyze the coverage
     for seed_name in seed_lis:
@@ -198,17 +206,15 @@ def dry_run(indir, fetch_function,coverage_function, queue):
         input_batches = img[1:2]
         # Predict the mutant and obtain the outputs
         # coverage_batches is the output of internal layers and metadata_batches is the output of the prediction result
-        coverage_batches,  metadata_batches = fetch_function((0,input_batches,0,0,0))
+        coverage_batches, metadata_batches = fetch_function((0, input_batches, 0, 0, 0))
         # Based on the output, compute the coverage information
         coverage_list = coverage_function(coverage_batches)
         metadata_list = metadata_function(metadata_batches)
         # Create a new seed
-        input = Seed(0, coverage_list[0], seed_name, None, metadata_list[0][0],metadata_list[0][0])
+        input = Seed(0, coverage_list[0], seed_name, None, metadata_list[0][0], metadata_list[0][0])
         new_img = np.append(input_batches, input_batches, axis=0)
         # Put the seed in the queue and save the npy file in the queue dir
         queue.save_if_interesting(input, new_img, False, True, seed_name)
-
-
 
 
 if __name__ == '__main__':
@@ -224,16 +230,19 @@ if __name__ == '__main__':
     parser.add_argument('-o', help='output directory')
 
     parser.add_argument('-model', help="target model to fuzz", choices=['vgg16', 'resnet20', 'mobilenet', 'vgg19',
-                                                                     'resnet50','lenet1', 'lenet4', 'lenet5'])
+                                                                        'resnet50', 'lenet1', 'lenet4', 'lenet5'], default='lenet5')
     parser.add_argument('-criteria', help="set the criteria to guide the fuzzing",
-                        choices=['nc', 'kmnc', 'nbc', 'snac', 'bknc', 'tknc'], default='kmnc')
+                        choices=['nc', 'kmnc', 'nbc', 'snac', 'bknc', 'tknc', 'fann'], default='kmnc')
     parser.add_argument('-batch_num', help="the number of mutants generated for each seed", type=int, default=20)
     parser.add_argument('-max_iteration', help="maximum number of fuzz iterations", type=int, default=10000000)
     parser.add_argument('-metric_para', help="set the parameter for different metrics", type=float)
-    parser.add_argument('-quantize_test', help="fuzzer for quantization", default=0, type = int)
+    parser.add_argument('-quantize_test', help="fuzzer for quantization", default=0, type=int)
+    # parser.add_argument('-ann_threshold', help="Distance below which we consider something new coverage.", type=float,
+    #                     default=1.0)
     parser.add_argument('-quan_model_dir', help="directory including the quantized models for testing")
     parser.add_argument('-random', help="whether to adopt random testing strategy", type=int, default=0)
-    parser.add_argument('-select',help="test selection strategy", choices=['uniform', 'tensorfuzz', 'deeptest', 'prob'], default='prob')
+    parser.add_argument('-select', help="test selection strategy",
+                        choices=['uniform', 'tensorfuzz', 'deeptest', 'prob'], default='prob')
 
     args = parser.parse_args()
 
@@ -275,12 +284,11 @@ if __name__ == '__main__':
         cri = args.metric_para
     else:
         cri = int(args.metric_para)
-    
+
     # The coverage computer
-    coverage_handler = Coverage(model = model, criteria=args.criteria, k = cri,
-                                profiling_dict=profile_dict,exclude_layer=exclude_layer_list)
-    
-    
+    coverage_handler = Coverage(model=model, criteria=args.criteria, k=cri,
+                                profiling_dict=profile_dict, exclude_layer=exclude_layer_list)
+
     # The log file which records the plot data after each iteration of the fuzzing
     plot_file = open(os.path.join(args.o, 'plot.log'), 'a+')
 
@@ -291,6 +299,7 @@ if __name__ == '__main__':
         model_paths = [os.path.join(args.quan_model_dir, name) for name in model_names]
         if args.model == 'mobilenet':
             import keras
+
             with CustomObjectScope({'relu6': keras.applications.mobilenet.relu6,
                                     'DepthwiseConv2D': keras.applications.mobilenet.DepthwiseConv2D}):
                 models = [load_model(m) for m in model_paths]
@@ -305,28 +314,29 @@ if __name__ == '__main__':
     # Like AFL, dry_run will run all initial seeds and keep all initial seeds in the seed queue
     dry_run_fetch = build_fetch_function(coverage_handler, preprocess)
 
-
-
     # The function to update coverage
     coverage_function = coverage_handler.update_coverage
     # The function to perform the mutation from one seed
     mutation_function = image_mutation_function(args.batch_num)
 
     # The seed queue
-    queue = ImageInputCorpus(args.o,args.random, args.select, coverage_handler.total_size, args.criteria)
+    if args.criteria == 'fann':
+        queue = TensorInputCorpus(args.o, args.random, args.select, cri, "kdtree")
+    else:
+        queue = ImageInputCorpus(args.o, args.random, args.select, coverage_handler.total_size, args.criteria)
 
     # Perform the dry_run process from the initial seeds
-    dry_run(args.i, dry_run_fetch,coverage_function, queue)
+    dry_run(args.i, dry_run_fetch, coverage_function, queue)
 
     # For each seed, compute the coverage and check whether it is a "bug", i.e., adversarial example
     image_iterate_function = iterate_function(model_names)
 
     # The main fuzzer class
-    fuzzer = Fuzzer(queue, coverage_function, metadata_function,objective_function, mutation_function, fetch_function, image_iterate_function, args.select)
+    fuzzer = Fuzzer(queue, coverage_function, metadata_function, objective_function, mutation_function, fetch_function,
+                    image_iterate_function, args.select)
 
     # The fuzzing process
     fuzzer.loop(args.max_iteration)
-
 
     print('finish', time.time() - start_time)
 

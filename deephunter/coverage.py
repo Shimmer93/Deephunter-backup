@@ -285,9 +285,12 @@ class Coverage():
                 self.snac_update_coverage(outputs,ptr)
             elif self.criteria == 'nc':
                 self.nc_update_coverage(outputs,ptr)
+            elif self.criteria == 'fann':
+                # Assume the penultimate layer is the logits layer
+                return np.reshape(outputs[-2], (outputs[-2].shape[0], outputs[-2].shape[-1]))
             else:
                 print("* please select the correct coverage criteria as feedback:")
-                print("['nc', 'kmnc', 'nbc', 'snac', 'bknc', 'tknc']")
+                print("['nc', 'kmnc', 'nbc', 'snac', 'bknc', 'tknc', 'fann]")
                 sys.exit(0)
 
 
