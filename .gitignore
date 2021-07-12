@@ -1,0 +1,5 @@
+deephunter/results
+deephunter/exp.py
+deephunter/try.py
+*.pyc
+test_seeds/dnntest*

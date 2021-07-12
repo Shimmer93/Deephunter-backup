@@ -12,6 +12,7 @@ import os
 
 sys.path.append('../')
 
+import keras
 from keras import Input
 from deephunter.coverage import Coverage
 
@@ -21,6 +22,7 @@ from keras.applications.vgg16 import preprocess_input
 import random
 import time
 import numpy as np
+from PIL import Image
 from deephunter.image_queue import ImageInputCorpus, TensorInputCorpus
 from deephunter.fuzzone import build_fetch_function
 
@@ -30,6 +32,13 @@ from lib.fuzzer import Fuzzer
 from deephunter.mutators import Mutators
 from keras.utils.generic_utils import CustomObjectScope
 
+#_, (x_test, y_test) = keras.datasets.cifar10.load_data()
+#x_test=x_test/255.0
+#x_test=x_test.reshape(10000,32,32,3)
+#y_test=y_test.reshape(-1)
+#yy = np.zeros((10000, 10))
+#for i in range(10000):
+#    yy[i][y_test[i]] = 1
 
 def imagenet_preprocessing(input_img_data):
     temp = np.copy(input_img_data)
@@ -37,13 +46,20 @@ def imagenet_preprocessing(input_img_data):
     qq = preprocess_input(temp)
     return qq
 
+def imgnt_preprocessing(x_test):
+    return x_test
 
-def mnist_preprocessing(x_test):
-    temp = np.copy(x_test)
-    temp = temp.reshape(temp.shape[0], 28, 28, 1)
-    temp = temp.astype('float32')
-    temp /= 255
-    return temp
+def mnist_preprocessing(x):
+    x = x.reshape(x.shape[0], 28, 28)
+    new_x = []
+    for img in x:
+        img = Image.fromarray(img.astype('uint8'), 'L')
+        img = img.resize(size=(32, 32))
+        img = np.asarray(img).astype(np.float32) / 255.0 - 0.1306604762738431
+        new_x.append(img)
+    new_x = np.stack(new_x)
+    new_x = np.expand_dims(new_x, axis=-1)
+    return new_x
 
 
 def cifar_preprocessing(x_test):
@@ -58,18 +74,18 @@ def cifar_preprocessing(x_test):
 
 model_weight_path = {
     'vgg16': "./profile/cifar10/models/vgg16.h5",
-    'resnet20': "./profile/cifar10/models/resnet.h5",
+    'resnet20': "/data/dnntest/zpengac/models/resnet/cifar10_resnet20v1_keras_deephunter_prob_kmnc2.h5",
     'lenet1': "./profile/mnist/models/lenet1.h5",
     'lenet4': "./profile/mnist/models/lenet4.h5",
-    'lenet5': "./profile/mnist/models/lenet5.h5"
+    'lenet5': "/data/dnntest/zpengac/models/lenet/mnist_lenet5_keras_32_py2.h5"
 }
 
 model_profile_path = {
     'vgg16': "./profile/cifar10/profiling/vgg16/0_50000.pickle",
-    'resnet20': "./profile/cifar10/profiling/resnet20/0_50000.pickle",
+    'resnet20': "/data/dnntest/zpengac/deephunter/deephunter/profile/cifar10_resnet20v1_keras_deephunter_prob_kmnc2.pickle",
     'lenet1': "./profile/mnist/profiling/lenet1/0_60000.pickle",
     'lenet4': "./profile/mnist/profiling/lenet4/0_60000.pickle",
-    'lenet5': "./profile/mnist/profiling/lenet5/0_60000.pickle",
+    'lenet5': "/data/dnntest/zpengac/deephunter/deephunter/profile/mnist_lenet5_32_py2.pickle",
     'mobilenet': "./profile/imagenet/profiling/mobilenet_merged.pickle",
     'vgg19': "./profile/imagenet/profiling/vgg19_merged.pickle",
     'resnet50': "./profile/imagenet/profiling/resnet50_merged.pickle"
@@ -83,7 +99,7 @@ preprocess_dic = {
     'lenet5': mnist_preprocessing,
     'mobilenet': imagenet_preprocessing,
     'vgg19': imagenet_preprocessing,
-    'resnet50': imagenet_preprocessing
+    'resnet50': imgnt_preprocessing
 }
 
 shape_dic = {
@@ -91,10 +107,10 @@ shape_dic = {
     'resnet20': (32, 32, 3),
     'lenet1': (28, 28, 1),
     'lenet4': (28, 28, 1),
-    'lenet5': (28, 28, 1),
+    'lenet5': (32, 32, 1),
     'mobilenet': (224, 224, 3),
     'vgg19': (224, 224, 3),
-    'resnet50': (224, 224, 3)
+    'resnet50': (256, 256, 3)
 }
 metrics_para = {
     'kmnc': 1000,
@@ -246,7 +262,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    img_rows, img_cols = 224, 224
+    img_rows, img_cols = 256, 256
     input_shape = (img_rows, img_cols, 3)
     input_tensor = Input(shape=input_shape)
 
@@ -265,7 +281,7 @@ if __name__ == '__main__':
     if args.model == 'mobilenet':
         model = MobileNet(input_tensor=input_tensor)
     elif args.model == 'vgg19':
-        model = VGG19(input_tensor=input_tensor)
+        model = VGG19(input_tensor=input_tensor, input_shape=input_shape)
     elif args.model == 'resnet50':
         model = ResNet50(input_tensor=input_tensor)
     else:
@@ -337,7 +353,16 @@ if __name__ == '__main__':
 
     # The fuzzing process
     fuzzer.loop(args.max_iteration)
+    
+    #x_test = cifar_preprocessing(x_test)
+    #model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
+    #print(model.metrics_names)
+    #print(model.evaluate(x_test, yy, verbose=1))
 
-    print('finish', time.time() - start_time)
+    spent_time = time.time() - start_time
+    print('finish',  spent_time)
+    f = open('time.txt', 'a+')
+    f.write(args.model + '\t' + args.criteria + '\t' + args.select + '\t' + str(spent_time) + '\n')
+    f.close()
 
 

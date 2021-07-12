@@ -7,7 +7,7 @@ pillow
 scikit-learn
 click
 future
-opencv-python
+opencv-python==3.2.0.8
 tinydb
 scipy
 pandas

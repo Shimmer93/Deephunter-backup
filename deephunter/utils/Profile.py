@@ -8,6 +8,7 @@ import argparse
 
 import pickle
 import pprint
+from PIL import Image
 
 from keras import Model
 from keras.datasets import mnist,cifar10
@@ -17,6 +18,9 @@ import collections
 
 import os, sys, errno
 from keras import backend as K
+
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 class DNNProfile():
     def __init__(self, model, exclude_layer=['input', 'flatten'],
@@ -141,21 +145,27 @@ def preprocessing_test_batch(x_test):
     x_test /= 255
     return x_test
 
-def mnist_preprocessing(x_test):
-    temp = np.copy(x_test)
-    temp = temp.reshape(temp.shape[0], 28, 28, 1)
-    temp = temp.astype('float32')
-    temp /= 255
-    return temp
+def mnist_preprocessing(x):
+    x = x.reshape(x.shape[0], 28, 28)
+    new_x = []
+    for img in x:
+        img = Image.fromarray(img.astype('uint8'), 'L')
+        img = img.resize(size=(32, 32))
+        img = np.asarray(img).astype(np.float32) / 255.0 - 0.1306604762738431
+        new_x.append(img)
+    new_x = np.stack(new_x)
+    new_x = np.expand_dims(new_x, axis=-1)
+    return new_x
 
-def cifar_preprocessing(x_test):
-    temp = np.copy(x_test)
-    temp = temp.astype('float32')
-    mean = [125.307, 122.95, 113.865]
-    std = [62.9932, 62.0887, 66.7048]
-    for i in range(3):
-        temp[:, :, :, i] = (temp[:, :, :, i] - mean[i]) / std[i]
-    return temp
+cifar_mean = np.array([125.307, 122.95, 113.865])
+cifar_std = np.array([62.9932, 62.0887, 66.7048])
+def cifar_preprocessing(x):
+    new_x = []
+    for img in x:
+        img = (img.astype('float32') - cifar_mean) / cifar_std
+        new_x.append(img)
+    new_x = np.stack(new_x)
+    return new_x
 
 
 def make_sure_path_exists(path):
@@ -195,18 +205,17 @@ if __name__ == '__main__':
     if args.train == 'mnist':
         (x_train, train_label), (x_test, test_label) = mnist.load_data()
         x_train = mnist_preprocessing(x_train)
+        profiler = DNNProfile(model)
+        print(np.shape(x_train))
+        profiler.update_coverage(x_train)
+        profiler.dump(profiling_dict_result)
     elif args.train == 'cifar':
         (x_train, train_label), (x_test, test_label) = cifar10.load_data()
-        x_train = cifar_preprocessing(x_train)
+        profiler = DNNProfile(model)
+        for i in range(50):
+            x_sub = cifar_preprocessing(x_train[i*1000:(i+1)*1000])
+            print(x_sub.shape)
+            profiler.update_coverage(x_sub)
+        profiler.dump(profiling_dict_result)
     else:
         print('Please extend the new train data here!')
-
-
-
-    profiler = DNNProfile(model)
-
-    print(np.shape(x_train))
-
-    profiler.update_coverage(x_train)
-
-    profiler.dump(profiling_dict_result)
