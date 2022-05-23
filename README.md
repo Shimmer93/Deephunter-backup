@@ -6,11 +6,66 @@ This repository contains a general coverage-guided fuzz testing framework, `Deep
 
 ## Installation
 
-We have tested DeepHunter based on Python 2.7 on Ubuntu 16.04 and Mac OS, theoretically it should also work on other operating systems. To get all the dependencies, it is sufficient to run the following command.
+<!--We have tested DeepHunter based on Python 2.7 on Ubuntu 16.04 and Mac OS, theoretically it should also work on other operating systems. To get all the dependencies, it is sufficient to run the following command.-->
 
+<!--```-->
+<!--pip install -r requirements.txt-->
+<!--```-->
+
+**Installation (Automatic)**
+
+Run installation script
+
+```bash
+bash setup.sh
 ```
+
+**Entering/Exiting Environment**
+
+Enter virtual environment with:
+
+```bash
+. envs.sh
+```
+
+Exit virtual environment with:
+
+```bash
+deactivate
+```
+
+**Installation (Manual)**
+
+Get pip for python2.
+
+```bash
+wget https://bootstrap.pypa.io/pip/2.7/get-pip.py
+```
+
+Install pip for python2.
+
+```bash
+python2 get-pip.py
+```
+
+Set up virtual environment in `.venv` folder.
+
+```bash
+python2 -m pip install virtualenv && python2 -m virtualenv .venv
+```
+
+Enter virtual environment
+
+```bash
+. .venv/bin/activate
+```
+
+Install requirements.
+
+```bash
 pip install -r requirements.txt
 ```
+
 
 ## The structure of the repository
 
