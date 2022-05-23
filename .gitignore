@@ -3,3 +3,4 @@ deephunter/exp.py
 deephunter/try.py
 *.pyc
 test_seeds/dnntest*
+deephunter/*_out*
