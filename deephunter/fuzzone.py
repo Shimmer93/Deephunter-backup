@@ -5,6 +5,7 @@ def predict(self, input_data):
     functor = K.function([inp] + [K.learning_phase()], self.outputs)
     outputs = functor([input_data, 0])
     return outputs
+
 def fetch_function(handler, input_batches, preprocess):
     _, img_batches, _, _, _ = input_batches
     if len(img_batches) == 0:
@@ -27,7 +28,6 @@ def quantize_fetch_function(handler, input_batches, preprocess, models):
         results = np.append(results,r1,axis =0)
     # Return the prediction outputs of all models
     return layer_outputs, results
-
 
 
 def build_fetch_function(handler, preprocess,models=None):

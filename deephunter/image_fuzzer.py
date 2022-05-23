@@ -41,20 +41,23 @@ from keras.utils.generic_utils import CustomObjectScope
 #    yy[i][y_test[i]] = 1
 
 def imagenet_preprocessing(input_img_data):
+    #print("imgenet preprocessing")
     temp = np.copy(input_img_data)
     temp = np.float32(temp)
     qq = preprocess_input(temp)
     return qq
 
 def imgnt_preprocessing(x_test):
+    #print("imgnt preprocessing")
     return x_test
 
 def mnist_preprocessing(x):
+    #print("mnist preprocessing")
     x = x.reshape(x.shape[0], 28, 28)
     new_x = []
     for img in x:
         img = Image.fromarray(img.astype('uint8'), 'L')
-        img = img.resize(size=(32, 32))
+        #img = img.resize(size=(32, 32))
         img = np.asarray(img).astype(np.float32) / 255.0 - 0.1306604762738431
         new_x.append(img)
     new_x = np.stack(new_x)
@@ -63,6 +66,8 @@ def mnist_preprocessing(x):
 
 
 def cifar_preprocessing(x_test):
+    #print("cifar preprocessing")
+    x_test = x_test.reshape(x_test.shape[0], 28, 28)
     temp = np.copy(x_test)
     temp = temp.astype('float32')
     mean = [125.307, 122.95, 113.865]
@@ -74,18 +79,18 @@ def cifar_preprocessing(x_test):
 
 model_weight_path = {
     'vgg16': "./profile/cifar10/models/vgg16.h5",
-    'resnet20': "/data/dnntest/zpengac/models/resnet/cifar10_resnet20v1_keras_deephunter_prob_kmnc2.h5",
+    'resnet20': "./profile/cifar10/models/resnet.h5",
     'lenet1': "./profile/mnist/models/lenet1.h5",
     'lenet4': "./profile/mnist/models/lenet4.h5",
-    'lenet5': "/data/dnntest/zpengac/models/lenet/mnist_lenet5_keras_32_py2.h5"
+    'lenet5': "./profile/mnist/models/lenet5.h5"
 }
 
 model_profile_path = {
     'vgg16': "./profile/cifar10/profiling/vgg16/0_50000.pickle",
-    'resnet20': "/data/dnntest/zpengac/deephunter/deephunter/profile/cifar10_resnet20v1_keras_deephunter_prob_kmnc2.pickle",
+    'resnet20': "./profile/cifar10/profiling/resnet20/0_50000.pickle",
     'lenet1': "./profile/mnist/profiling/lenet1/0_60000.pickle",
     'lenet4': "./profile/mnist/profiling/lenet4/0_60000.pickle",
-    'lenet5': "/data/dnntest/zpengac/deephunter/deephunter/profile/mnist_lenet5_32_py2.pickle",
+    'lenet5': "./profile/mnist/profiling/lenet5/0_60000.pickle",
     'mobilenet': "./profile/imagenet/profiling/mobilenet_merged.pickle",
     'vgg19': "./profile/imagenet/profiling/vgg19_merged.pickle",
     'resnet50': "./profile/imagenet/profiling/resnet50_merged.pickle"
@@ -329,6 +334,7 @@ if __name__ == '__main__':
 
     # Like AFL, dry_run will run all initial seeds and keep all initial seeds in the seed queue
     dry_run_fetch = build_fetch_function(coverage_handler, preprocess)
+
 
     # The function to update coverage
     coverage_function = coverage_handler.update_coverage

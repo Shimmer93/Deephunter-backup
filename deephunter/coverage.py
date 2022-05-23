@@ -72,7 +72,6 @@ class Coverage():
         outputs = self.functor([input_data, 0])
         return outputs
 
-
     def kmnc_update_coverage(self, outputs, ptr):
 
         for idx, layer_name in enumerate(self.layer_to_compute):
@@ -293,10 +292,7 @@ class Coverage():
                 print("['nc', 'kmnc', 'nbc', 'snac', 'bknc', 'tknc', 'fann]")
                 sys.exit(0)
 
-
         return ptr
-
-
 
 if __name__ == '__main__':
     print("main Test.")
