@@ -76,7 +76,10 @@ def cifar_preprocessing(x_test):
         temp[:, :, :, i] = (temp[:, :, :, i] - mean[i]) / std[i]
     return temp
 
+# TODO: add preprocessing for text dataset
 
+
+# TODO: add text model here
 model_weight_path = {
     'vgg16': "./profile/cifar10/models/vgg16.h5",
     'resnet20': "./profile/cifar10/models/resnet.h5",
@@ -85,6 +88,7 @@ model_weight_path = {
     'lenet5': "./profile/mnist/models/lenet5.h5"
 }
 
+# TODO: add text model here
 model_profile_path = {
     'vgg16': "./profile/cifar10/profiling/vgg16/0_50000.pickle",
     'resnet20': "./profile/cifar10/profiling/resnet20/0_50000.pickle",
@@ -96,6 +100,7 @@ model_profile_path = {
     'resnet50': "./profile/imagenet/profiling/resnet50_merged.pickle"
 }
 
+# TODO: add text model here
 preprocess_dic = {
     'vgg16': cifar_preprocessing,
     'resnet20': cifar_preprocessing,
@@ -107,6 +112,7 @@ preprocess_dic = {
     'resnet50': imgnt_preprocessing
 }
 
+# TODO: add text model here
 shape_dic = {
     'vgg16': (32, 32, 3),
     'resnet20': (32, 32, 3),
@@ -127,6 +133,7 @@ metrics_para = {
     'fann': 1.0,
     'snac': 10
 }
+# TODO: add text model here
 execlude_layer_dic = {
     'vgg16': ['input', 'flatten', 'activation', 'batch', 'dropout'],
     'resnet20': ['input', 'flatten', 'activation', 'batch', 'dropout'],
@@ -150,6 +157,13 @@ def image_mutation_function(batch_num):
     # Given a seed, randomly generate a batch of mutants
     def func(seed):
         return Mutators.image_random_mutate(seed, batch_num)
+
+    return func
+
+def text_mutation_function(batch_num):
+    # Given a seed, randomly generate a batch of mutants
+    def func(seed):
+        return Mutators.text_random_mutate(seed, batch_num)
 
     return func
 
@@ -250,6 +264,7 @@ if __name__ == '__main__':
     parser.add_argument('-i', help='input seed directory')
     parser.add_argument('-o', help='output directory')
 
+    # TODO: add text model here
     parser.add_argument('-model', help="target model to fuzz", choices=['vgg16', 'resnet20', 'mobilenet', 'vgg19',
                                                                         'resnet50', 'lenet1', 'lenet4', 'lenet5'], default='lenet5')
     parser.add_argument('-criteria', help="set the criteria to guide the fuzzing",
@@ -267,6 +282,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # TODO: figure out text size
     img_rows, img_cols = 256, 256
     input_shape = (img_rows, img_cols, 3)
     input_tensor = Input(shape=input_shape)
@@ -339,7 +355,11 @@ if __name__ == '__main__':
     # The function to update coverage
     coverage_function = coverage_handler.update_coverage
     # The function to perform the mutation from one seed
-    mutation_function = image_mutation_function(args.batch_num)
+    # TODO: replace with name of text model
+    if (args.model == 'ourtextmodel'):
+        mutation_function = text_mutation_function(args.batch_num)
+    else:
+        mutation_function = image_mutation_function(args.batch_num)
 
     # The seed queue
     if args.criteria == 'fann':
