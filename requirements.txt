@@ -15,3 +15,5 @@ tqdm
 requests
 pyflann
 xxhash
+regex==2021.11.10
+nltk==3.4.5

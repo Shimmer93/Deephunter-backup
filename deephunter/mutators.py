@@ -7,6 +7,10 @@ import time
 import copy
 reload(sys)
 sys.setdefaultencoding('utf8')
+from nltk import download as nltk_download, word_tokenize
+from nltk.corpus import wordnet
+from nltk.tokenize import PunktSentenceTokenizer
+from nltk.tokenize.treebank import TreebankWordDetokenizer
 
 
 # keras 1.2.2 tf:1.2.0
@@ -273,9 +277,71 @@ class Mutators():
 
         return np.asarray(ref_batches), np.asarray(batches), cl_batches, l0_ref_batches, linf_ref_batches
 
+
+    # Text mutations
+    # Swap two sentences.
+    def rearrange_sentences(text, params):
+        pst = PunktSentenceTokenizer()
+        sentences = pst.tokenize(text)
+        if (len(sentences) <= 1):
+            return text
+        ind1 = random.randrange(len(sentences))
+        ind2 = random.randrange(len(sentences))
+        while (ind1 == ind2):
+            ind2 = random.randrange(len(sentences))
+        tmp = sentences[ind1]
+        sentences[ind1] = sentences[ind2]
+        sentences[ind2] = tmp
+        return " ".join(sentences)
+
+    # Generate a random synonym for a given word, if nltk has one.
+    # If not, return the word.
+    @staticmethod
+    def get_rand_synonym(word):
+        try:
+            synsets = wordnet.synsets(word)
+        except LookupError:
+            # Need to download wordnet once.
+            nltk_download('wordnet')
+            synsets = wordnet.synsets(word)
+        synonym_list = map(lambda x: x.lemmas()[0].name().encode(), synsets)
+        synonym_list = filter(lambda w: w != word, synonym_list)
+        if (len(synonym_list) == 0):
+            # There are no synonyms, so just return the original word.
+            return word
+        return random.sample(synonym_list, 1)[0]
+
+    # Possible improvement: replace nouns with nouns and adjectives with adjectives and don't replace anything else.
+    # See https://www.nltk.org/howto/wordnet.html
+    # Replace one word with a synonym provided by nltk.
+    def sub_synonym(text, params):
+        # break up text into words
+        try:
+            words = word_tokenize(text)
+        except LookupError:
+            # Need to download nltk punkt once.
+            nltk_download('punkt')
+            words = word_tokenize(text)
+        # swap word with synonym
+        replace_word_index = random.randrange(0, len(words))
+        words[replace_word_index] = Mutators.get_rand_synonym(words[replace_word_index])
+        detokenizer = TreebankWordDetokenizer()
+        return detokenizer.detokenize(words)
+
+    # TODO: Add the ID of each text transformation (unrelated to image mutations)
+    # Can break this up into multiple groups like with image mutations if you need to distinguish bw two classes of mutations
+    text_mutation_ids = [1, 2]
+    # Fll in with method names of text transformations
+    text_transformations = [rearrange_sentences, sub_synonym]
+    # TODO: fill in with params of text transformations, one entry per transformation method
+    text_params = []
+    text_params.append(list(xrange(-3, 3)))  # image_translation
+    text_params.append(list(map(lambda x: x * 0.1, list(xrange(7, 12)))))  # image_scale
+
+
     # TODO: Adapt this function for text mutations
     @staticmethod
-    def text_mutate_one(ref_img, img, cl, l0_ref, linf_ref, try_num=50):
+    def text_mutate_one(ref_img, text, cl, l0_ref, linf_ref, try_num=50):
 
         # ref_img is the reference text, text is the seed
 
@@ -289,30 +355,42 @@ class Mutators():
 
         # tyr_num is the maximum number of trials in Algorithm 2
 
-
-        x, y, z = img.shape
+        # Probably just need length
+        # x, y, z = img.shape
+        length = text.shape
 
         # a, b is the alpha and beta in Equation 1 in the paper
-        a = 0.02
-        b = 0.20
+        # a is the fraction of pixels we are allowing to change
+        # b is the fraction of the color space that we allow a pixel value to change by
+        # a = 0.02
+        # b = 0.20
 
         # l0: alpha * size(s), l_infinity: beta * 255 in Equation 1
-        l0 = int(a * x * y * z)
-        l_infinity = int(b * 255)
+        # l0 is the max number of changed pixels between an image and its mutant
+        # l0 = int(a * x * y * z)
+        # l_infinity is the max value that a pixel can change by
+        # l_infinity = int(b * 255)
+
+        # Analog for a, b, l0, l_infinity:
+        # Will ignore them for now, but could use them for
+        # max number of words allowed to change between two strings
+        # or any measure of how much a seed has been changed from the original
 
         ori_shape = ref_img.shape
         for ii in range(try_num):
             random.seed(time.time())
             if cl == 0:  # 0: can choose class A and B
-                tid = random.sample(Mutators.classA + Mutators.classB, 1)[0]
+                # Pick a random mutation (the id of the mutation)
+                tid = random.sample(Mutators.text_mutation_ids, 1)[0]
                 # Randomly select one transformation   Line-7 in Algorithm2
-                transformation = Mutators.transformations[tid]
-                params = Mutators.params[tid]
+                # Then look up the mutation by id
+                transformation = Mutators.text_transformations[tid]
+                params = Mutators.text_params[tid]
                 # Randomly select one parameter Line 10 in Algo2
                 param = random.sample(params, 1)[0]
 
                 # Perform the transformation  Line 11 in Algo2
-                img_new = transformation(copy.deepcopy(img), param)
+                img_new = transformation(text, param)
                 img_new = img_new.reshape(ori_shape)
 
                 if tid in Mutators.classA:
@@ -336,15 +414,16 @@ class Mutators():
                 img_new = transformation(copy.deepcopy(img), param)
                 sub = ref_img - img_new
 
-                # To compute the value in Equation 2 in the paper.
-                l0_new = l0_ref +  np.sum(sub != 0)
-                linf_new = max(linf_ref , np.max(abs(sub)))
+                # # To compute the value in Equation 2 in the paper.
+                # l0_new = l0_ref +  np.sum(sub != 0)
+                # linf_new = max(linf_ref , np.max(abs(sub)))
 
-                if  l0_new < l0 or linf_new < l_infinity:
-                    return ref_img, img_new, 1, 1, l0_ref, linf_ref
+                # if  l0_new < l0 or linf_new < l_infinity:
+                #     return ref_img, img_new, 1, 1, l0_ref, linf_ref
         # Otherwise the mutation is failed. Line 20 in Algo 2
         return ref_img, img, cl, 0, l0_ref, linf_ref
 
+    @staticmethod
     def text_random_mutate(seed, batch_num):
 
         test = np.load(seed.fname)
