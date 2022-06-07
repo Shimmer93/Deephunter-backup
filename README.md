@@ -3,6 +3,8 @@ DeepHunter: A Coverage-Guided Fuzzer for DeepNeural Networks
 
 This repository contains a general coverage-guided fuzz testing framework, `DeepHunter`, for testing deep neural networks.
 
+# Attention: This is NOT an official repo from the authors!
+
 
 ## Installation
 
